@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Risale Okuma Takip Sistemi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; margin: 0 !important; padding: 0 !important; overflow-x: hidden !important; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 h-screen w-screen flex flex-col m-0 p-0">
+
+    <!-- Header -->
+    <header class="bg-emerald-700 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                📖 Risale Okuma Takibi
+            </h1>
+            <div class="flex items-center gap-4">
+                <div id="user-info" class="text-sm font-medium"></div>
+                <button id="logout-btn" onclick="cikisYap()" class="hidden text-xs bg-emerald-800 hover:bg-emerald-900 px-2.5 py-1 rounded transition">Çıkış</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
+        
+        <!-- Giriş Ekranı -->
+        <div id="auth-section" class="max-w-md mx-auto bg-white rounded-xl shadow-lg p-6 mt-10">
+            <h2 class="text-2xl font-bold text-center text-emerald-800 mb-6">Sisteme Giriş</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">E-posta Adresi</label>
+                    <input type="email" id="login-email" placeholder="ornek@mail.com" onblur="ePostaKontrolEt()" class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Ad Soyad</label>
+                    <input type="text" id="login-name" placeholder="Adınız Soyadınız" class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Rolünüz</label>
+                    <select id="login-role" onchange="rolDegisti()" class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
+                        <option value="Uye">Üye</option>
+                        <option value="Yonetici">Grup Yöneticisi</option>
+                    </select>
+                </div>
+                <div id="group-code-container">
+                    <label class="block text-sm font-medium text-gray-700">Katılmak İstediğiniz Grup Kodu</label>
+                    <input type="text" id="login-group-code" placeholder="Örn: GRP-1234" class="w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 uppercase outline-none">
+                </div>
+                <button onclick="sistemeGirisYap()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold p-2.5 rounded-lg transition">
+                    Giriş Yap / Kaydol
+                </button>
+            </div>
+        </div>
+
+        <!-- Ana Uygulama Ekranı -->
+        <div id="app-section" class="hidden space-y-6">
+            
+            <!-- Üst Bar: Grup Seçimi ve Yeni Gruba Katılma -->
+            <div class="bg-white rounded-xl shadow p-4 flex flex-col md:flex-row justify-between items-center gap-4 border-l-4 border-emerald-600">
+                <div class="flex items-center gap-3 w-full md:w-auto">
+                    <span class="text-sm font-bold text-gray-700 whitespace-nowrap">Aktif Grup:</span>
+                    <select id="active-group-select" onchange="aktifGrupDegisti()" class="p-2 text-sm bg-emerald-50 border border-emerald-300 rounded-lg font-mono text-emerald-900 font-bold focus:ring-2 focus:ring-emerald-500 outline-none flex-grow"></select>
+                </div>
+                <div class="flex items-center gap-2 w-full md:w-auto justify-end">
+                    <input type="text" id="new-group-join-code" placeholder="Yeni Grup Kodu" class="p-2 text-sm border rounded-lg uppercase outline-none w-36">
+                    <button onclick="yeniGrubaKatil()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition whitespace-nowrap">+ Gruba Katıl</button>
+                </div>
+            </div>
+
+            <!-- Başarı Rozetleri Paneli -->
+            <div class="bg-white rounded-xl shadow p-5">
+                <h3 class="text-md font-bold text-gray-800 mb-3 flex items-center gap-2">
+                    <span>🏆 Başarı Rozetleriniz</span>
+                </h3>
+                <div id="badges-container" class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <!-- Rozetler dinamik dolacak -->
+                </div>
+            </div>
+
+            <!-- Kurucu / Yönetici Tüm Sistem Paneli -->
+            <div id="master-admin-panel" class="hidden bg-emerald-50 border border-emerald-200 rounded-xl p-6 space-y-4 shadow-sm">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <span class="text-xs font-bold text-emerald-800 uppercase tracking-wide">👑 Kurucu / Sistem Paneli</span>
+                        <h3 class="text-lg font-bold text-emerald-900 mt-1">Sistemdeki Tüm Gruplar, Yöneticiler ve Üyeler</h3>
+                    </div>
+                    <button onclick="masterPanelVerileriniYukle()" class="text-xs bg-emerald-200 hover:bg-emerald-300 text-emerald-900 px-3 py-1.5 rounded-lg font-semibold transition">Listeyi Yenile</button>
+                </div>
+                <div id="master-groups-container" class="space-y-4 max-h-96 overflow-y-auto pr-2"></div>
+            </div>
+
+            <!-- Standart Grup Bilgisi ve QR -->
+            <div id="manager-panel" class="hidden bg-white border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-center gap-4 shadow-sm">
+                <div>
+                    <span class="text-xs font-bold text-emerald-800 uppercase">Grup Yönetim Bilgisi</span>
+                    <h3 class="text-base font-bold text-emerald-900 mt-1">Seçili Grup Kodunuz: <span id="display-group-code" class="font-mono text-emerald-700"></span></h3>
+                </div>
+                <div class="bg-gray-50 p-2 rounded-lg border flex flex-col items-center">
+                    <div id="qrcode" class="mb-1"></div>
+                    <span class="text-[10px] text-gray-500">Katılım QR Kodu</span>
+                </div>
+            </div>
+
+            <!-- Sabit Hedef Paneli -->
+            <div class="bg-white rounded-xl shadow p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="text-sm font-bold text-gray-700">🎯 Günlük Sabit Hedef Sayfa:</span>
+                    <input type="number" id="global-target" value="10" min="1" onchange="hedefDegisti()" class="w-24 p-2 text-center font-bold border rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none">
+                </div>
+                <div id="sync-status" class="text-xs text-emerald-600 font-medium">Veriler güncel</div>
+            </div>
+
+            <!-- Haftalık Takvim Kartları -->
+            <div class="bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center justify-between">
+                    <span>Haftalık Okuma Durumu (Pazartesi - Pazar)</span>
+                    <span class="text-xs bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full">Bu Hafta</span>
+                </h3>
+                <div id="weekly-cards-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-4"></div>
+            </div>
+
+            <!-- Grup Liderlik Tablosu ve İstatistikler -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-xl shadow p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4 flex justify-between items-center">
+                        <span>🏆 Seçili Grup Liderlik Tablosu</span>
+                        <button onclick="liderlikTablosunuGuncelle()" class="text-xs text-emerald-600 hover:underline">Yenile</button>
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead>
+                                <tr class="border-b bg-gray-50">
+                                    <th class="p-2">Sıra</th>
+                                    <th class="p-2">İsim</th>
+                                    <th class="p-2 text-right">Toplam Okunan</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leaderboard-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow p-6">
+                    <h3 class="text-lg font-bold text-gray-800 mb-4">📈 Okuma İstatistikleri</h3>
+                    <canvas id="statsChart" class="w-full h-48"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t py-4 text-center text-xs text-gray-500">
+        Risale Okuma Takip Sistemi &copy; 2026
+    </footer>
+
+    <script>
+        let currentUser = { email: '', name: '', groups: [], activeGroupCode: '', role: 'Uye' };
+        let haftalikVeriler = [0, 0, 0, 0, 0, 0, 0];
+        let chartInstance = null;
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const qrKod = urlParams.get('kod');
+            if (qrKod) {
+                document.getElementById('login-role').value = 'Uye';
+                document.getElementById('login-group-code').value = qrKod.toUpperCase();
+            }
+
+            const savedUser = localStorage.getItem('risale_user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                uygulamayiBaslat();
+            } else {
+                rolDegisti();
+            }
+        };
+
+        function ePostaKontrolEt() {
+            const email = document.getElementById('login-email').value.trim();
+            if (!email) return;
+
+            google.script.run.withSuccessHandler(function(res) {
+                if (res.found) {
+                    document.getElementById('login-name').value = res.name;
+                    if (res.groups.length > 0) {
+                        let role = document.getElementById('login-role').value;
+                        if (role === 'Yonetici') {
+                            let yoneticiGrup = res.groups.find(g => g.role === 'Yonetici');
+                            if (yoneticiGrup) {
+                                document.getElementById('login-group-code').value = yoneticiGrup.groupCode;
+                            }
+                        }
+                    }
+                }
+            }).kullaniciyiGetirVeyaKodUret(email, document.getElementById('login-role').value, "");
+        }
+
+        function rolDegisti() {
+            const role = document.getElementById('login-role').value;
+            const container = document.getElementById('group-code-container');
+            const input = document.getElementById('login-group-code');
+            const email = document.getElementById('login-email').value.trim();
+
+            if (role === 'Yonetici') {
+                container.style.display = 'block';
+                input.readOnly = true;
+                input.className = "w-full mt-1 p-2 border rounded-lg bg-gray-100 font-mono font-bold text-emerald-800 uppercase outline-none";
+                
+                google.script.run.withSuccessHandler(function(res) {
+                    let yoneticiGrubu = res.groups.find(g => g.role === 'Yonetici');
+                    if (yoneticiGrubu) {
+                        input.value = yoneticiGrubu.groupCode;
+                    }
+                }).kullaniciyiGetirVeyaKodUret(email, 'Yonetici', "");
+            } else {
+                container.style.display = 'block';
+                input.readOnly = false;
+                input.value = '';
+                input.className = "w-full mt-1 p-2 border rounded-lg focus:ring-2 focus:ring-emerald-500 uppercase outline-none";
+                input.placeholder = "Örn: GRP-1234";
+            }
+        }
+
+        function sistemeGirisYap() {
+            const email = document.getElementById('login-email').value.trim();
+            const name = document.getElementById('login-name').value.trim();
+            const role = document.getElementById('login-role').value;
+            let groupCode = document.getElementById('login-group-code').value.trim().toUpperCase();
+
+            if (!email || !name) {
+                alert("Lütfen e-posta ve ad soyad alanlarını doldurun!");
+                return;
+            }
+
+            if (!groupCode) {
+                alert("Lütfen grup kodunu giriniz veya oluşturulmasını bekleyiniz!");
+                return;
+            }
+
+            google.script.run.withSuccessHandler(function(res) {
+                currentUser.email = email;
+                currentUser.name = name;
+                currentUser.groups = res.groups;
+                
+                let varMi = currentUser.groups.some(g => g.groupCode === groupCode);
+                if (!varMi) {
+                    currentUser.groups.push({ groupCode: groupCode, role: role });
+                }
+
+                currentUser.activeGroupCode = groupCode;
+                currentUser.role = role;
+
+                localStorage.setItem('risale_user', JSON.stringify(currentUser));
+                uygulamayiBaslat();
+            }).kullaniciyiGetirVeyaKodUret(email, role, role === 'Uye' ? groupCode : "");
+        }
+
+        function uygulamayiBaslat() {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('app-section').classList.remove('hidden');
+            document.getElementById('logout-btn').classList.remove('hidden');
+            
+            grupSecimMenusunuDoldur();
+            kurucuPaneliniKontrolEt();
+
+            haftalikKartlariOlustur();
+            grafikCiz();
+            liderlikTablosunuGuncelle();
+        }
+
+        function grupSecimMenusunuDoldur() {
+            const select = document.getElementById('active-group-select');
+            select.innerHTML = '';
+            
+            currentUser.groups.forEach(g => {
+                let opt = document.createElement('option');
+                opt.value = g.groupCode;
+                opt.innerText = `${g.groupCode} (${g.role === 'Yonetici' ? 'Yönetici' : 'Üye'})`;
+                if (g.groupCode === currentUser.activeGroupCode) {
+                    opt.selected = true;
+                }
+                select.appendChild(opt);
+            });
+        }
+
+        function aktifGrupDegisti() {
+            const select = document.getElementById('active-group-select');
+            currentUser.activeGroupCode = select.value;
+            
+            let bulunanGrup = currentUser.groups.find(g => g.groupCode === currentUser.activeGroupCode);
+            if (bulunanGrup) {
+                currentUser.role = bulunanGrup.role;
+            }
+
+            localStorage.setItem('risale_user', JSON.stringify(currentUser));
+            kurucuPaneliniKontrolEt();
+            liderlikTablosunuGuncelle();
+        }
+
+        function yeniGrubaKatil() {
+            const yeniKod = document.getElementById('new-group-join-code').value.trim().toUpperCase();
+            if (!yeniKod) {
+                alert("Lütfen katılmak istediğiniz grup kodunu yazın.");
+                return;
+            }
+
+            google.script.run.withSuccessHandler(function(res) {
+                currentUser.groups = res.groups;
+                currentUser.activeGroupCode = yeniKod;
+                currentUser.role = 'Uye';
+                localStorage.setItem('risale_user', JSON.stringify(currentUser));
+                
+                document.getElementById('new-group-join-code').value = '';
+                alert("Gruba başarıyla katıldınız!");
+                uygulamayiBaslat();
+            }).kullaniciyiGetirVeyaKodUret(currentUser.email, 'Uye', yeniKod);
+        }
+
+        function kurucuPaneliniKontrolEt() {
+            if (currentUser.role === 'Yonetici') {
+                document.getElementById('manager-panel').classList.remove('hidden');
+                document.getElementById('display-group-code').innerText = currentUser.activeGroupCode;
+
+                document.getElementById('qrcode').innerHTML = "";
+                new QRCode(document.getElementById("qrcode"), {
+                    text: window.location.href.split('?')[0] + "?kod=" + currentUser.activeGroupCode,
+                    width: 70,
+                    height: 70
+                });
+
+                document.getElementById('master-admin-panel').classList.remove('hidden');
+                masterPanelVerileriniYukle();
+            } else {
+                document.getElementById('manager-panel').classList.add('hidden');
+                document.getElementById('master-admin-panel').classList.add('hidden');
+            }
+
+            let rolText = currentUser.role === 'Yonetici' ? 'Grup Yöneticisi' : 'Üye';
+            document.getElementById('user-info').innerText = `${currentUser.name} (${currentUser.activeGroupCode} - ${rolText})`;
+        }
+
+        function masterPanelVerileriniYukle() {
+            google.script.run.withSuccessHandler(function(tumGruplar) {
+                const container = document.getElementById('master-groups-container');
+                container.innerHTML = '';
+
+                if (tumGruplar.length === 0) {
+                    container.innerHTML = `<p class="text-sm text-gray-500">Sistemde henüz kayıtlı grup yok.</p>`;
+                    return;
+                }
+
+                tumGruplar.forEach(grup => {
+                    let div = document.createElement('div');
+                    div.className = "bg-white p-4 rounded-xl border border-emerald-200 shadow-sm space-y-2";
+                    
+                    let uyelerHtml = grup.members.map(m => `
+                        <tr class="border-b text-xs">
+                            <td class="p-2 font-medium">${m.name}</td>
+                            <td class="p-2 text-gray-500">${m.email}</td>
+                            <td class="p-2 text-right font-bold text-emerald-700">${m.total} sf</td>
+                        </tr>
+                    `).join('');
+
+                    div.innerHTML = `
+                        <div class="flex justify-between items-center border-b pb-2">
+                            <div>
+                                <span class="font-mono font-bold text-emerald-800 text-base">${grup.groupCode}</span>
+                                <span class="text-xs text-gray-500 ml-2">Yönetici: <strong>${grup.managerName}</strong> (${grup.managerEmail})</span>
+                            </div>
+                            <span class="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded font-bold">${grup.members.length} Üye</span>
+                        </div>
+                        <div class="overflow-x-auto max-h-40">
+                            <table class="w-full text-left text-sm">
+                                <thead>
+                                    <tr class="bg-gray-50 text-[11px] text-gray-500">
+                                        <th class="p-2">Üye Adı</th>
+                                        <th class="p-2">E-posta</th>
+                                        <th class="p-2 text-right">Toplam Okunan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${uyelerHtml || '<tr><td colspan="3" class="p-2 text-center text-gray-400">Üye yok</td></tr>'}</tbody>
+                            </table>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            }).tumSistemVerileriniGetir();
+        }
+
+        function cikisYap() {
+            localStorage.removeItem('risale_user');
+            location.reload();
+        }
+
+        function rozetleriHesaplaVeGoster() {
+            const container = document.getElementById('badges-container');
+            container.innerHTML = '';
+
+            let toplamOkunan = haftalikVeriler.reduce((a, b) => a + b, 0);
+            let hedef = parseInt(document.getElementById('global-target').value) || 10;
+            
+            // Rozet 1: İstikamet Yıldızı (Herhangi bir gün hedefi tutturdu mu)
+            let hedefTutturanGunSayisi = haftalikVeriler.filter(val => val >= hedef).length;
+            let rozet1Aktif = hedefTutturanGunSayisi >= 3;
+
+            // Rozet 2: Sayfa Avcısı (Haftalık toplam 50+ sayfa)
+            let rozet2Aktif = toplamOkunan >= 50;
+
+            // Rozet 3: Haftalık Tamamlama (7 günün tamamı girilmiş ve hedefe ulaşılmış)
+            let rozet3Aktif = haftalikVeriler.every(val => val >= hedef);
+
+            // Rozet 4: Grup Lideri Adayı (Haftalık 100+ sayfa)
+            let rozet4Aktif = toplamOkunan >= 100;
+
+            const rozetler = [
+                { isim: "🌟 İstikamet Yıldızı", aciklama: "3 gün hedefe ulaştın", aktif: rozet1Aktif },
+                { isim: "📚 Sayfa Avcısı", aciklama: "Toplam 50+ sayfa", aktif: rozet2Aktif },
+                { isim: "🔥 Haftalık Tamamlama", aciklama: "Tüm hafta hedefler tam", aktif: rozet3Aktif },
+                { isim: "👑 Kıdemli Okuyucu", aciklama: "Toplam 100+ sayfa", aktif: rozet4Aktif }
+            ];
+
+            rozetler.forEach(r => {
+                let div = document.createElement('div');
+                div.className = `p-3 rounded-xl border flex flex-col justify-between transition ${r.aktif ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-sm' : 'bg-gray-100 border-gray-200 text-gray-400 opacity-60'}`;
+                div.innerHTML = `
+                    <div class="text-sm font-bold">${r.isim}</div>
+                    <div class="text-[11px] mt-1 ${r.aktif ? 'text-emerald-700' : 'text-gray-400'}">${r.aciklama}</div>
+                    <div class="text-[10px] mt-2 font-semibold">${r.aktif ? '✅ Kazanıldı' : '🔒 Kilitli'}</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function haftalikKartlariOlustur() {
+            const container = document.getElementById('weekly-cards-container');
+            container.innerHTML = '';
+
+            const gunler = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+            const simdi = new Date();
+            simdi.setHours(0, 0, 0, 0);
+
+            const day = simdi.getDay();
+            const diff = simdi.getDate() - day + (day === 0 ? -6 : 1);
+            const pazartesi = new Date(new Date().setDate(diff));
+            pazartesi.setHours(0, 0, 0, 0);
+
+            gunler.forEach((gun, index) => {
+                let d = new Date(pazartesi);
+                d.setDate(pazartesi.getDate() + index);
+                d.setHours(0, 0, 0, 0);
+                
+                let tarihStr = d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+                let isoTarih = d.toISOString().split('T')[0];
+                let gelecekteMi = d > simdi;
+
+                let cardHtml = `
+                    <div id="card-${index}" class="border rounded-xl p-4 flex flex-col justify-between ${gelecekteMi ? 'bg-gray-200 border-gray-300 text-gray-400 opacity-70' : 'bg-gray-100 border-gray-300 text-gray-700'} transition-all duration-300">
+                        <div>
+                            <div class="text-xs font-semibold uppercase">${gun} ${gelecekteMi ? '(Kilitli)' : ''}</div>
+                            <div class="text-sm font-bold mt-1">${tarihStr}</div>
+                        </div>
+                        <div class="mt-4 flex items-center justify-between">
+                            <span id="icon-${index}" class="text-xl">${gelecekteMi ? '🔒' : '❌'}</span>
+                            <input type="number" id="input-${index}" min="0" placeholder="${gelecekteMi ? '-' : 'Sayfa'}" ${gelecekteMi ? 'disabled' : ''} oninput="sayfaGuncelle(${index}, '${isoTarih}')" class="w-16 p-1 text-center text-xs border rounded bg-white text-gray-800 font-bold ${gelecekteMi ? 'cursor-not-allowed bg-gray-100' : ''}">
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+            rozetleriHesaplaVeGoster();
+        }
+
+        function sayfaGuncelle(index, tarihStr) {
+            const hedef = parseInt(document.getElementById('global-target').value) || 10;
+            const okunanInput = document.getElementById(`input-${index}`);
+            if(!okunanInput || okunanInput.disabled) return;
+
+            const okunan = parseInt(okunanInput.value) || 0;
+            haftalikVeriler[index] = okunan;
+            
+            const card = document.getElementById(`card-${index}`);
+            const icon = document.getElementById(`icon-${index}`);
+
+            card.className = "border rounded-xl p-4 flex flex-col justify-between transition-all duration-300";
+            
+            if (okunan >= hedef) {
+                card.classList.add("bg-emerald-100", "border-emerald-400", "text-emerald-800");
+                icon.innerText = "✅";
+            } else if (okunan > 0) {
+                card.classList.add("bg-amber-100", "border-amber-400", "text-amber-800");
+                icon.innerText = "⚠️";
+            } else {
+                card.classList.add("bg-red-100", "border-red-300", "text-red-700");
+                icon.innerText = "❌";
+            }
+
+            if(chartInstance) {
+                chartInstance.data.datasets[0].data = haftalikVeriler;
+                chartInstance.update();
+            }
+
+            rozetleriHesaplaVeGoster();
+
+            document.getElementById('sync-status').innerText = "Kaydediliyor...";
+            google.script.run
+                .withSuccessHandler(function(res) {
+                    document.getElementById('sync-status').innerText = "Kaydedildi ✓";
+                    liderlikTablosunuGuncelle();
+                })
+                .kayitEkleVeyaGuncelle(currentUser.email, currentUser.name, currentUser.activeGroupCode, currentUser.role, tarihStr, hedef, okunan);
+        }
+
+        function liderlikTablosunuGuncelle() {
+            google.script.run.withSuccessHandler(function(liste) {
+                const tbody = document.getElementById('leaderboard-body');
+                tbody.innerHTML = '';
+                
+                if (liste.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-gray-400">Henüz kayıt yok.</td></tr>`;
+                    return;
+                }
+
+                liste.forEach((uye, idx) => {
+                    let tr = document.createElement('tr');
+                    tr.className = "border-b hover:bg-gray-50";
+                    tr.innerHTML = `
+                        <td class="p-2 font-bold text-emerald-600">${idx + 1}</td>
+                        <td class="p-2 font-medium">${uye.name}</td>
+                        <td class="p-2 text-right font-bold text-emerald-700">${uye.total} sf</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }).grupPuanlariniGetir(currentUser.activeGroupCode);
+        }
+
+        function hedefDegisti() {
+            rozetleriHesaplaVeGoster();
+            for (let i = 0; i < 7; i++) {
+                let inputEl = document.getElementById(`input-${i}`);
+                if (inputEl && !inputEl.disabled && inputEl.value !== "") {
+                    let simdi = new Date();
+                    simdi.setHours(0, 0, 0, 0);
+                    let day = simdi.getDay();
+                    let diff = simdi.getDate() - day + (day === 0 ? -6 : 1);
+                    let pazartesi = new Date(new Date().setDate(diff));
+                    pazartesi.setHours(0, 0, 0, 0);
+                    pazartesi.setDate(pazartesi.getDate() + i);
+                    sayfaGuncelle(i, pazartesi.toISOString().split('T')[0]);
+                }
+            }
+        }
+
+        function grafikCiz() {
+            const ctx = document.getElementById('statsChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'],
+                    datasets: [{
+                        label: 'Okunan Sayfa',
+                        data: haftalikVeriler,
+                        borderColor: '#059669',
+                        backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
